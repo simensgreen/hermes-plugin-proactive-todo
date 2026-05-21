@@ -1,0 +1,15 @@
+name: hermes-plugin-proactive-todo
+kind: standalone
+version: 0.2.0
+description: Proactive execution plans with nested subitems, acceptance criteria, verification, and Hermes /goal loop binding.
+author: hermes-dev
+
+provides_tools:
+  - proactive_todo_write
+  - proactive_todo_read
+  - proactive_todo_verify
+
+requires_env:
+  - name: PROACTIVE_TODO_MAX_DEPTH
+    description: "Max nesting depth for subitems (default 5)"
+    secret: false
