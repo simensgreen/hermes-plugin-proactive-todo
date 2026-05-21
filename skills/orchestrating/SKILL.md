@@ -48,7 +48,8 @@ Use `proactive_todo_write` (root, `merge=false`) with goal, plan-level `acceptan
 ### 4) Track status
 
 - `proactive_todo_read` before each next step.
-- Map delegation results to plan item ids; `proactive_todo_verify(scope=item)` when a slice is done.
+- Map delegation results to plan item ids; `proactive_todo_verify(scope=item)` when a slice is done (same turn as work when possible).
+- Interleave discovery tools and verify; deliver one integrated outcome to the user, not a running log of plan items.
 
 ### 5) Verify before done
 
@@ -73,3 +74,7 @@ Merge parallel outcomes; run project-wide checks after shared-surface edits.
 - Merging unrelated work into one `delegate_task`
 - Worker calling `verify(scope=plan)`
 - Telling the user the task is done before plan verify returns `ok: true`
+- Announcing each plan item or verify in user-visible messages
+- Re-listing the plan checklist in every user-visible message
+- One cheap tool only (e.g. search snippets) when criteria require primary sources, files, or reproducible checks
+- Finishing work in prose without item verify

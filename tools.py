@@ -31,13 +31,59 @@ def _load_or_empty(session_id: str) -> dict[str, Any]:
     return plan
 
 
-def _goal_payload(session_id: str, plan: dict[str, Any]) -> dict[str, Any]:
-    """Build plan_summary and sync standing goal from current plan JSON."""
-    summary = pl.format_plan_summary(plan)
-    payload: dict[str, Any] = {"plan_summary": summary}
+_VERIFY_EVIDENCE_MAX = 200
+
+
+def _sync_goal_only(session_id: str, plan: dict[str, Any]) -> dict[str, Any]:
+    """Sync standing goal; omit plan_summary from tool payload."""
+    payload: dict[str, Any] = {}
     if goals_bind.sync_goal_progress(session_id, plan):
         payload["goal_synced"] = True
     return payload
+
+
+def _goal_payload(
+    session_id: str,
+    plan: dict[str, Any],
+    *,
+    include_summary: bool = False,
+) -> dict[str, Any]:
+    payload = _sync_goal_only(session_id, plan)
+    if include_summary:
+        payload["plan_summary"] = pl.format_plan_summary(plan)
+    return payload
+
+
+def _cap_evidence(text: str, max_len: int = _VERIFY_EVIDENCE_MAX) -> str:
+    if len(text) <= max_len:
+        return text
+    return text[: max_len - 3] + "..."
+
+
+def _slim_verification(verification: dict[str, Any] | None) -> dict[str, Any]:
+    if not verification:
+        return {"status": "unverified"}
+    out: dict[str, Any] = {"status": verification.get("status", "unverified")}
+    evidence = str(verification.get("evidence") or "").strip()
+    if evidence:
+        out["evidence"] = _cap_evidence(evidence)
+    return out
+
+
+def _verify_failure_payload(
+    session_id: str,
+    plan: dict[str, Any],
+    *,
+    include_plan_summary: bool,
+) -> dict[str, Any]:
+    out: dict[str, Any] = {
+        "session_id": session_id,
+        "progress": pl.format_progress_flags(plan),
+        **_sync_goal_only(session_id, plan),
+    }
+    if include_plan_summary:
+        out["plan_summary"] = pl.format_plan_summary(plan)
+    return out
 
 
 def _response(
@@ -215,6 +261,7 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
         evidence = str(args.get("evidence", "")).strip()
         criteria_results = args.get("criteria_results") or []
         mark_complete = bool(args.get("mark_complete", True))
+        include_plan_summary = bool(args.get("include_plan_summary", False))
 
         plan = load_plan(session_id)
         if plan is None:
@@ -257,7 +304,11 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
                     "must_continue": True,
                     "failed_criteria": failed_crit,
                     "error": "acceptance criteria not met",
-                    **_goal_payload(session_id, plan),
+                    **_verify_failure_payload(
+                        session_id,
+                        plan,
+                        include_plan_summary=include_plan_summary,
+                    ),
                 })
 
             item["verification"] = {
@@ -270,14 +321,21 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
                 item["status"] = "completed"
 
             save_plan(session_id, plan)
-            return _json({
+            item_line = pl.format_item_progress_line(plan, item_id)
+            out: dict[str, Any] = {
                 "ok": True,
                 "scope": "item",
                 "item_id": item_id,
-                "verification": item["verification"],
-                **_goal_payload(session_id, plan),
-                **_response(plan, session_id, include_full_plan=False),
-            })
+                "session_id": session_id,
+                "verification": _slim_verification(item["verification"]),
+                "progress": pl.format_progress_flags(plan),
+                **_sync_goal_only(session_id, plan),
+            }
+            if item_line:
+                out["item_line"] = item_line
+            if include_plan_summary:
+                out["plan_summary"] = pl.format_plan_summary(plan)
+            return _json(out)
 
         if scope == "plan":
             if not pl.plan_tree_complete(plan):
@@ -302,15 +360,19 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
             plan["plan_verified"] = True
             plan["status"] = "completed"
             save_plan(session_id, plan)
-            goal_extra: dict[str, Any] = _goal_payload(session_id, plan)
+            goal_extra: dict[str, Any] = _goal_payload(
+                session_id,
+                plan,
+                include_summary=True,
+            )
             if goals_bind.bind_goal_on_plan_complete(session_id, plan):
                 goal_extra["goal_completed"] = True
             return _json({
                 "ok": True,
                 "scope": "plan",
                 "plan_verified": True,
+                "session_id": session_id,
                 **goal_extra,
-                **_response(plan, session_id),
             })
 
         return _json({"ok": False, "error": "scope must be item or plan"})

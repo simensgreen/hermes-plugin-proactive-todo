@@ -419,6 +419,33 @@ def build_judge_flags(plan: dict[str, Any]) -> dict[str, str]:
     }
 
 
+def format_progress_flags(plan: dict[str, Any]) -> dict[str, Any]:
+    """Compact progress for verify tool responses (not full PLAN_PROGRESS)."""
+    flags = build_judge_flags(plan)
+    ready = compute_ready(plan.get("items") or [], plan)
+    return {
+        "items_passed": flags["ITEMS_PASSED"],
+        "judge_may_mark_done": flags["JUDGE_MAY_MARK_DONE"] == "true",
+        "ready_items": ready,
+    }
+
+
+def format_item_progress_line(plan: dict[str, Any], item_id: str) -> str | None:
+    """Single ITEMS line for one node."""
+    item = find_item(plan, item_id)
+    if item is None:
+        return None
+    idx = index_by_id(plan)
+    if item_id not in idx:
+        return None
+    _item, path = idx[item_id]
+    emoji = item_status_emoji(item)
+    path_label = path_string(path) or item_id
+    title = (item.get("title") or item_id).strip()
+    label = item_verify_label(item)
+    return f"{emoji} {path_label} | {title} | {label}"
+
+
 def format_plan_summary(plan: dict[str, Any]) -> str:
     """Compact plan digest with judge flags and emoji markers."""
     flags = build_judge_flags(plan)

@@ -12,9 +12,15 @@ Replaces the built-in `todo` tool when enabled.
 | `proactive_todo_read` | Read plan + `ready_items`, `ready_subitems`, blockers |
 | `proactive_todo_verify` | Verify item or full plan against criteria |
 
-## Bundled skills (self-contained)
+## Bundled skills (opt-in)
 
-Load via `skill_view("hermes-plugin-proactive-todo:<name>")`:
+After the plugin loads, tools are available immediately. Bundled skills are **opt-in**: they are **not** listed in the default global skills index / `<available_skills>` in the system prompt ([Bundle skills](https://hermes-agent.nousresearch.com/docs/guides/build-a-hermes-plugin#bundle-skills); same as `hermes-plugin-searxng`). Tool descriptions instruct `skill_view` before use.
+
+```text
+skill_view("hermes-plugin-proactive-todo:proactive-todo")
+```
+
+(`hermes-plugin-proactive-todo` is the plugin `name` in `plugin.yaml`; folder names under `skills/`.)
 
 | Skill | Role |
 |-------|------|
@@ -28,7 +34,14 @@ On **root** `proactive_todo_write` (`merge=false`, no `parent_item_id`), the plu
 
 On successful **plan** verify, the plugin syncs a final digest into the goal and calls `GoalManager.mark_done()`.
 
-Each **verify** returns `plan_summary` (emoji markers from plan JSON) and updates the standing goal `PLAN_PROGRESS` block so the goal judge sees authoritative status.
+**Two channels for plan progress:**
+
+| Channel | Content |
+|---------|---------|
+| Standing goal (judge) | Full `PLAN_PROGRESS` via `sync_goal_progress` on every verify |
+| Tool JSON to the model | `scope=item`: compact `progress` only; `scope=plan`: `plan_summary` for the final user-facing reply |
+
+Append `plan_summary` to the **final user-facing reply** once after `scope=plan` succeeds — not after each item verify.
 
 You do **not** need to type `/goal` manually when the plugin is enabled and you create a root plan.
 
@@ -55,13 +68,14 @@ Requires `hermes_cli.goals` (Hermes Agent) in the same Python environment as the
 hermes plugins enable hermes-plugin-proactive-todo
 ```
 
-3. Disable built-in todo (required — avoid duplicate tools):
+3. Enable proactive todo toolset and disable built-in `todo` (avoid duplicate tools):
 
 ```bash
+hermes tools enable proactive_todo
 hermes tools disable todo
 ```
 
-Repeat `hermes tools disable todo` for each platform profile you use (CLI, Telegram, etc.).
+Per platform: in profile `platform_toolsets`, enable `proactive_todo` and disable `todo` on **each** channel you use (CLI, messengers, etc.).
 
 4. Restart Hermes / gateway if running.
 
@@ -99,4 +113,3 @@ Subagents write sub-plans with `proactive_todo_write(parent_item_id=...)`. They 
 ## License
 
 MIT (match your Hermes deployment).
-# hermes-plugin-proactive-todo

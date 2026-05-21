@@ -139,9 +139,13 @@ def main() -> None:
             "criteria_results": [{"criterion": c, "met": True} for c in crit],
         }, session_id=sid))
         assert vr["ok"], vr
-        assert "plan_summary" in vr
+        assert "plan_summary" not in vr
+        assert "plan" not in vr
+        assert "derived" not in vr
         assert vr.get("goal_synced") is True
-        assert "✅" in vr["plan_summary"]
+        assert "progress" in vr
+        assert "items_passed" in vr["progress"]
+        assert vr["verification"]["status"] == "passed"
 
     plan_v = json.loads(tools.proactive_todo_verify({
         "scope": "plan",
@@ -150,6 +154,8 @@ def main() -> None:
     }, session_id=sid))
     assert plan_v["ok"], plan_v
     assert plan_v.get("goal_completed") is True
+    assert "plan" not in plan_v
+    assert "plan_summary" in plan_v
     assert "PLAN_VERIFIED: true" in plan_v["plan_summary"]
     assert "JUDGE_MAY_MARK_DONE: true" in plan_v["plan_summary"]
     assert "DONE_GATE: closed" in plan_v["plan_summary"]

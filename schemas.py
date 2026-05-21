@@ -1,7 +1,8 @@
 """Tool schemas for proactive todo plan tools."""
 
 _SKILL_REF = (
-    'Load workflow first: skill_view("hermes-plugin-proactive-todo:proactive-todo"). '
+    'Non-trivial work: skill_view("hermes-plugin-proactive-todo:proactive-todo") '
+    "before this tool (plugin skills are opt-in, not in the global skills index). "
 )
 
 _COMMON_PARAMS = {
@@ -25,10 +26,12 @@ PROACTIVE_TODO_WRITE = {
     "name": "proactive_todo_write",
     "description": (
         "Create or update a proactive execution plan (replaces built-in todo when this "
-        "plugin is enabled). Use for multi-step work: goal, acceptance criteria, items "
-        "with depends_on, recommended_models, and nested subitems. "
+        "plugin is enabled). Use when the request is non-trivial (multiple deliverables, "
+        "gather-and-synthesize, multi-step or multi-file work, delegation, unclear scope; "
+        "when unsure, treat as non-trivial). "
         + _SKILL_REF
-        + "Root plan: omit parent_item_id, merge=false, provide goal + items. "
+        + "On a new non-trivial task: skill_view then root plan before web search, browser, "
+        "or terminal. Root plan: omit parent_item_id, merge=false, provide goal + items. "
         "Sub-plan (subagent): set plan_session_id + parent_item_id, merge=false to "
         "replace subitems under that parent. merge=true patches by global item id. "
         "Never use the built-in todo tool when this plugin is active."
@@ -134,9 +137,11 @@ PROACTIVE_TODO_VERIFY = {
     "description": (
         "Verify an item or the whole plan against acceptance criteria. Items with "
         "subitems cannot pass until all descendants are completed and passed. Do not "
-        "tell the user the task is finished until scope=plan returns ok:true. Returns "
-        "plan_summary (emoji progress) and syncs the Hermes standing goal for the judge. "
-        "Append plan_summary to the user-facing final message. Subagents must not call "
+        "tell the user the task is finished until scope=plan returns ok:true. "
+        "Syncs PLAN_PROGRESS into the standing goal for the judge (not repeated in "
+        "every scope=item response). scope=item returns compact progress only; "
+        "scope=plan returns plan_summary for the final user-facing reply (append verbatim "
+        "once). No user-visible per-item progress announcements. Subagents must not call "
         "scope=plan. " + _SKILL_REF
     ),
     "parameters": {
@@ -173,6 +178,14 @@ PROACTIVE_TODO_VERIFY = {
                 "type": "boolean",
                 "description": "If true and verify passes, set status completed.",
                 "default": True,
+            },
+            "include_plan_summary": {
+                "type": "boolean",
+                "description": (
+                    "If true, include full plan_summary in the tool result. Default false "
+                    "for scope=item; scope=plan always returns plan_summary."
+                ),
+                "default": False,
             },
         },
         "required": ["scope"],

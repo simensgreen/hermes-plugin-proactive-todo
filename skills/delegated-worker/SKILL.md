@@ -43,7 +43,7 @@ Extract:
 4. Handoff to lead — do NOT call proactive_todo_verify(scope=plan)
 ```
 
-Use only `proactive_todo_*` tools, not built-in `todo`.
+Use only `proactive_todo_write`, `proactive_todo_read`, and `proactive_todo_verify`.
 
 ### 3) Execute
 
