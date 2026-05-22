@@ -42,12 +42,12 @@ def build_standing_goal(plan: dict[str, Any], session_id: str) -> str:
         "3. After each item's work: proactive_todo_verify(scope=item, item_id=..., criteria_results=...).",
         "4. When all items are done: proactive_todo_verify(scope=plan, criteria_results=...).",
         "5. Do not treat the work as complete until proactive_todo_verify(scope=plan) returns ok:true.",
-        "6. In your final user-visible response when done, state explicitly that plan verification passed.",
-        "7. Do not send PLAN_PROGRESS or per-item verify status to the user until the final deliverable.",
-        "8. After item verify: continue with tools only; no user-visible progress messages.",
-        "9. Do not re-list the plan checklist in user-visible replies during execution.",
-        "10. Treat the PLAN_PROGRESS block below as authoritative for item/plan status.",
-        "11. Mark goal DONE only when JUDGE_FLAGS show JUDGE_MAY_MARK_DONE: true "
+        "6. User-visible messages: deliverable only — never mention the plan, todos, "
+        "verification, PLAN_PROGRESS, or completion_note.",
+        "7. After item verify: continue with tools only; no user-visible progress messages.",
+        "8. Do not re-list the plan checklist in user-visible replies during execution.",
+        "9. Treat the PLAN_PROGRESS block below as authoritative for item/plan status.",
+        "10. Mark goal DONE only when JUDGE_FLAGS show JUDGE_MAY_MARK_DONE: true "
         "(requires PLAN_VERIFIED: true and ALL_ITEMS_PASSED: true).",
         "",
         f"Plan outcome: {user_goal}",

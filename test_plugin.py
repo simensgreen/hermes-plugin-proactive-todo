@@ -116,6 +116,21 @@ def main() -> None:
     assert "DONE_GATE: open" in summary_empty
     assert "⬜" in summary_empty
 
+    assert plan_logic.criteria_match(
+        "Unit tests pass for the module",
+        "module unit tests passing",
+    )
+    assert not plan_logic.criteria_match("A", "B")
+
+    note = plan_logic.format_plan_completion_note({
+        "goal": "G",
+        "items": [{"id": "x", "title": "T", "status": "completed",
+                   "verification": {"status": "passed"}, "items": []}],
+        "plan_verified": True,
+    })
+    assert "Plan verification passed" in note
+    assert "PLAN_PROGRESS" not in note
+
     r = json.loads(tools.proactive_todo_write({
         "goal": "Ship feature",
         "acceptance_criteria": ["Tests pass"],
@@ -164,18 +179,34 @@ def main() -> None:
         assert "items_passed" in vr["progress"]
         assert vr["verification"]["status"] == "passed"
 
-    plan_v = json.loads(tools.proactive_todo_verify({
+    bad_plan = json.loads(tools.proactive_todo_verify({
         "scope": "plan",
-        "evidence": "all done",
+        "item_id": "a",
         "criteria_results": [{"criterion": "Tests pass", "met": True}],
     }, session_id=sid))
-    assert plan_v["ok"], plan_v
-    assert plan_v.get("goal_completed") is True
-    assert "plan" not in plan_v
-    assert "plan_summary" in plan_v
-    assert "PLAN_VERIFIED: true" in plan_v["plan_summary"]
-    assert "JUDGE_MAY_MARK_DONE: true" in plan_v["plan_summary"]
-    assert "DONE_GATE: closed" in plan_v["plan_summary"]
+    assert not bad_plan["ok"]
+    assert "item_id" in bad_plan["error"]
+
+    fuzzy = json.loads(tools.proactive_todo_verify({
+        "scope": "plan",
+        "evidence": "all done",
+        "criteria_results": [{"criterion": "tests pass (confirmed)", "met": True}],
+    }, session_id=sid))
+    assert fuzzy["ok"], fuzzy
+    assert fuzzy.get("goal_completed") is True
+    assert "plan" not in fuzzy
+    assert "plan_summary" not in fuzzy
+    assert "completion_note" in fuzzy
+    assert "Plan verification passed" in fuzzy["completion_note"]
+    assert "PLAN_PROGRESS" not in fuzzy["completion_note"]
+
+    reset_blocked = json.loads(tools.proactive_todo_write({
+        "goal": "Other",
+        "merge": False,
+        "items": [{"id": "z", "title": "Z"}],
+    }, session_id=sid))
+    assert not reset_blocked["ok"]
+    assert "merge=true" in reset_blocked["error"]
     final_goal = _FakeGoalManager.instances[sid]._goal or ""
     assert "JUDGE_MAY_MARK_DONE: true" in final_goal
     assert any(c[1] == "mark_done" for c in _FakeGoalManager.calls)

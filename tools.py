@@ -42,16 +42,9 @@ def _sync_goal_only(session_id: str, plan: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-def _goal_payload(
-    session_id: str,
-    plan: dict[str, Any],
-    *,
-    include_summary: bool = False,
-) -> dict[str, Any]:
-    payload = _sync_goal_only(session_id, plan)
-    if include_summary:
-        payload["plan_summary"] = pl.format_plan_summary(plan)
-    return payload
+def _goal_payload(session_id: str, plan: dict[str, Any]) -> dict[str, Any]:
+    """Sync standing goal only; never expose PLAN_PROGRESS in tool JSON."""
+    return _sync_goal_only(session_id, plan)
 
 
 def _cap_evidence(text: str, max_len: int = _VERIFY_EVIDENCE_MAX) -> str:
@@ -156,6 +149,15 @@ def proactive_todo_write(args: dict[str, Any], **kwargs: Any) -> str:
             parent["items"] = new_items
         else:
             if not merge:
+                if plan.get("items"):
+                    return _json({
+                        "ok": False,
+                        "error": (
+                            "root plan already exists; use merge=true to patch items or "
+                            "acceptance_criteria. merge=false replaces the whole plan and "
+                            "resets item progress."
+                        ),
+                    })
                 goal = (args.get("goal") or "").strip()
                 if not goal:
                     return _json({"ok": False, "error": "goal is required for a new root plan"})
@@ -245,28 +247,6 @@ def proactive_todo_read(args: dict[str, Any], **kwargs: Any) -> str:
         return _json({"ok": False, "error": str(exc)})
 
 
-def _check_criteria(
-    criteria: list[str],
-    criteria_results: list[dict[str, Any]],
-) -> tuple[bool, list[str]]:
-    if not criteria:
-        return True, []
-
-    by_text: dict[str, bool] = {}
-    for row in criteria_results:
-        if not isinstance(row, dict):
-            continue
-        crit = str(row.get("criterion", "")).strip()
-        if crit:
-            by_text[crit] = bool(row.get("met"))
-
-    failed: list[str] = []
-    for c in criteria:
-        if not by_text.get(c):
-            failed.append(c)
-    return len(failed) == 0, failed
-
-
 def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
     try:
         session_id = _resolve_session(args, kwargs)
@@ -300,7 +280,7 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
                     "error": "all subitems must be completed and passed before verifying parent",
                 })
 
-            passed, failed_crit = _check_criteria(
+            passed, failed_crit = pl.check_criteria_met(
                 item.get("acceptance_criteria") or [],
                 criteria_results,
             )
@@ -351,6 +331,12 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
             return _json(out)
 
         if scope == "plan":
+            item_id_arg = (args.get("item_id") or "").strip()
+            if item_id_arg:
+                return _json({
+                    "ok": False,
+                    "error": "item_id is only for scope=item; omit item_id for scope=plan",
+                })
             if not pl.plan_tree_complete(plan):
                 return _json({
                     "ok": False,
@@ -358,7 +344,7 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
                     "error": "not all items are completed and passed",
                 })
 
-            passed, failed_crit = _check_criteria(
+            passed, failed_crit = pl.check_criteria_met(
                 plan.get("acceptance_criteria") or [],
                 criteria_results,
             )
@@ -368,25 +354,29 @@ def proactive_todo_verify(args: dict[str, Any], **kwargs: Any) -> str:
                     "must_continue": True,
                     "failed_criteria": failed_crit,
                     "error": "plan-level acceptance criteria not met",
+                    "hint": (
+                        "Copy each acceptance_criteria string from proactive_todo_read "
+                        "into criteria_results[].criterion (wording may be paraphrased)."
+                    ),
                 })
 
             plan["plan_verified"] = True
             plan["status"] = "completed"
             save_plan(session_id, plan)
-            goal_extra: dict[str, Any] = _goal_payload(
-                session_id,
-                plan,
-                include_summary=True,
-            )
+            goal_extra: dict[str, Any] = _goal_payload(session_id, plan)
             if goals_bind.bind_goal_on_plan_complete(session_id, plan):
                 goal_extra["goal_completed"] = True
-            return _json({
+            out_plan: dict[str, Any] = {
                 "ok": True,
                 "scope": "plan",
                 "plan_verified": True,
                 "session_id": session_id,
+                "completion_note": pl.format_plan_completion_note(plan),
                 **goal_extra,
-            })
+            }
+            if include_plan_summary:
+                out_plan["plan_summary"] = pl.format_plan_summary(plan)
+            return _json(out_plan)
 
         return _json({"ok": False, "error": "scope must be item or plan"})
     except ValueError as exc:

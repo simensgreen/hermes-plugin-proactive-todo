@@ -39,9 +39,9 @@ On successful **plan** verify, the plugin syncs a final digest into the goal and
 | Channel | Content |
 |---------|---------|
 | Standing goal (judge) | Full `PLAN_PROGRESS` via `sync_goal_progress` on every write and verify |
-| Tool JSON to the model | `scope=item`: compact `progress` only; `scope=plan`: `plan_summary` for the final user-facing reply |
+| Tool JSON to the model | `scope=item`: compact `progress`; `scope=plan`: `completion_note` one-liner (no PLAN_PROGRESS by default) |
 
-Append `plan_summary` to the **final user-facing reply** once after `scope=plan` succeeds — not after each item verify.
+After `scope=plan` succeeds, the user-facing reply is **deliverable only** — no plan, verify, or `completion_note` in chat.
 
 You do **not** need to type `/goal` manually when the plugin is enabled and you create a root plan.
 

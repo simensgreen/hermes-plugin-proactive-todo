@@ -10,7 +10,7 @@ metadata:
       - subagents
       - goals
     category: hermes-plugin
-    version: "2.1.0"
+    version: "2.3.0"
     related_skills:
       - orchestrating
       - delegated-worker
@@ -63,11 +63,11 @@ After root `proactive_todo_write` (`merge=false`), the plugin binds a standing g
 
 ## User-visible output
 
-- **No** per-item verify announcements to the user.
-- **No** re-posting the plan tree or sub-item checklist between tool rounds.
+- **No** plan, todos, verification, or tooling meta in user-visible messages — only the outcome the user asked for.
+- **No** per-item verify announcements; **no** "plan verification passed" or similar.
+- **No** re-posting the plan tree, `PLAN_PROGRESS`, `JUDGE_FLAGS`, `plan_summary`, or `completion_note`.
 - At most one short user-visible message if blocked; otherwise **one** substantive reply when done.
 - Batch multiple `proactive_todo_verify(scope=item)` in one turn **without** user-visible prose between tool calls.
-- Append `plan_summary` **only** from the last `verify(scope=plan)` into the final reply, verbatim once.
 - Use `proactive_todo_read` when unsure of next step — do not rely on old verify tool blobs.
 
 ## Core rules
@@ -89,8 +89,8 @@ After root `proactive_todo_write` (`merge=false`), the plugin binds a standing g
    a. proactive_todo_read
    b. ready_items / execute / delegate (see orchestrating)
    c. proactive_todo_verify(scope=item) — no user-visible progress spam
-5. proactive_todo_verify(scope=plan)
-6. One final user-visible reply + plan_summary from step 5
+5. proactive_todo_verify(scope=plan) — omit item_id and mark_complete
+6. One final user-visible reply: deliverable only (step 5 is internal; user never hears about it)
 ```
 
 ## Verification
@@ -101,7 +101,9 @@ After root `proactive_todo_write` (`merge=false`), the plugin binds a standing g
 [{"criterion": "exact text from plan", "met": true, "note": "checkable evidence"}]
 ```
 
-Use `met: false` when evidence does not satisfy the criterion. Evidence must be checkable (paths, commands, URLs, quotes) — not vague prose.
+Prefer copying criterion strings from `proactive_todo_read`; minor wording drift is tolerated. Use `met: false` when evidence does not satisfy the criterion. Evidence must be checkable (paths, commands, URLs, quotes) — not vague prose.
+
+For `scope=plan`: omit `item_id` (mark_complete is ignored). To fix plan-level criteria text, use `proactive_todo_write(merge=true)` — not `merge=false` (that resets all item progress).
 
 Parent items with subitems cannot verify until all descendants are `completed` and `passed`.
 
@@ -121,4 +123,7 @@ Lead after handoff: `proactive_todo_read` → `proactive_todo_verify(scope=item,
 - Subagent calling `verify(scope=plan)`
 - Lead `merge=false` on root while a subagent writes subitems under an in-flight parent
 - Claiming success without `verify(scope=plan)`
-- Echoing intermediate `plan_summary` from item verify to the user
+- Any user-visible mention of plan, todos, verify, or `completion_note`
+- Pasting `plan_summary`, `PLAN_PROGRESS`, or tool progress blocks into the user reply
+- Root `merge=false` when a plan already exists (resets progress)
+- `verify(scope=plan)` with `item_id`

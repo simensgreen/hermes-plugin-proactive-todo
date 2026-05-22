@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 from copy import deepcopy
 from typing import Any
 
@@ -465,6 +466,73 @@ def format_item_progress_line(plan: dict[str, Any], item_id: str) -> str | None:
     title = (item.get("title") or item_id).strip()
     label = item_verify_label(item)
     return f"{emoji} {path_label} | {title} | {label}"
+
+
+def normalize_criterion_text(text: str) -> str:
+    """Lowercase, collapse whitespace, strip punctuation for fuzzy match."""
+    s = str(text).strip().lower()
+    s = re.sub(r"[^\w\s]", " ", s, flags=re.UNICODE)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _criterion_tokens(text: str) -> set[str]:
+    return {t for t in normalize_criterion_text(text).split() if len(t) >= 3}
+
+
+def criteria_match(plan_criterion: str, stated_criterion: str) -> bool:
+    """True if verify result criterion matches a plan acceptance line."""
+    a = normalize_criterion_text(plan_criterion)
+    b = normalize_criterion_text(stated_criterion)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    shorter, longer = (a, b) if len(a) <= len(b) else (b, a)
+    if shorter in longer:
+        if len(shorter) >= 12 or len(shorter) / max(len(longer), 1) >= 0.45:
+            return True
+    ta, tb = _criterion_tokens(plan_criterion), _criterion_tokens(stated_criterion)
+    if not ta or not tb:
+        return False
+    overlap = ta & tb
+    if not overlap:
+        return False
+    ratio = len(overlap) / min(len(ta), len(tb))
+    if len(overlap) >= 2 and ratio >= 0.5:
+        return True
+    if len(overlap) == 1 and len(ta) == len(tb) == 1:
+        return True
+    return False
+
+
+def check_criteria_met(
+    criteria: list[str],
+    criteria_results: list[dict[str, Any]],
+) -> tuple[bool, list[str]]:
+    """Each plan criterion must have a matching met=true row in criteria_results."""
+    if not criteria:
+        return True, []
+
+    rows = [r for r in criteria_results if isinstance(r, dict)]
+    failed: list[str] = []
+    for c in criteria:
+        met = False
+        for row in rows:
+            stated = str(row.get("criterion", "")).strip()
+            if criteria_match(c, stated) and bool(row.get("met")):
+                met = True
+                break
+        if not met:
+            failed.append(c)
+    return len(failed) == 0, failed
+
+
+def format_plan_completion_note(plan: dict[str, Any]) -> str:
+    """One-line ack for tool JSON only (not for user-visible messages)."""
+    passed, total, _ = count_item_stats(plan)
+    crit_n = len(plan.get("acceptance_criteria") or [])
+    crit_part = f", {crit_n} plan criteria met" if crit_n else ""
+    return f"Plan verification passed ({passed}/{total} items{crit_part})."
 
 
 def format_plan_summary(plan: dict[str, Any]) -> str:

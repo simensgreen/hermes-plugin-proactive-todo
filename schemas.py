@@ -34,6 +34,7 @@ PROACTIVE_TODO_WRITE = {
         "or terminal. Root plan: omit parent_item_id, merge=false, provide goal + items. "
         "Sub-plan (subagent): set plan_session_id + parent_item_id, merge=false to "
         "replace subitems under that parent. merge=true patches by global item id. "
+        "Do not use merge=false on an existing root plan (resets progress); use merge=true. "
         "Do not set status=completed in write — only proactive_todo_verify marks items "
         "completed and passed. Use in_progress while working. "
         "Never use the built-in todo tool when this plugin is active."
@@ -143,11 +144,11 @@ PROACTIVE_TODO_VERIFY = {
         "Verify an item or the whole plan against acceptance criteria. Items with "
         "subitems cannot pass until all descendants are completed and passed. Do not "
         "tell the user the task is finished until scope=plan returns ok:true. "
-        "Syncs PLAN_PROGRESS into the standing goal for the judge (not repeated in "
-        "every scope=item response). scope=item returns compact progress only; "
-        "scope=plan returns plan_summary for the final user-facing reply (append verbatim "
-        "once). No user-visible per-item progress announcements. Subagents must not call "
-        "scope=plan. " + _SKILL_REF
+        "Syncs PLAN_PROGRESS into the standing goal for the judge (not in tool JSON by "
+        "default). scope=item: compact progress only. scope=plan: completion_note for agent "
+        "context only — never mention plan/verify/todos to the user. Omit item_id "
+        "for scope=plan. Subagents must not call scope=plan. "
+        + _SKILL_REF
     ),
     "parameters": {
         "type": "object",
@@ -160,7 +161,7 @@ PROACTIVE_TODO_VERIFY = {
             },
             "item_id": {
                 "type": "string",
-                "description": "Required when scope=item.",
+                "description": "Required when scope=item. Omit when scope=plan.",
             },
             "evidence": {
                 "type": "string",
@@ -181,14 +182,14 @@ PROACTIVE_TODO_VERIFY = {
             },
             "mark_complete": {
                 "type": "boolean",
-                "description": "If true and verify passes, set status completed.",
+                "description": "scope=item only: if true and verify passes, set status completed.",
                 "default": True,
             },
             "include_plan_summary": {
                 "type": "boolean",
                 "description": (
-                    "If true, include full plan_summary in the tool result. Default false "
-                    "for scope=item; scope=plan always returns plan_summary."
+                    "If true, include full PLAN_PROGRESS plan_summary in tool JSON (judge "
+                    "channel only). Default false for both scopes."
                 ),
                 "default": False,
             },
