@@ -76,7 +76,7 @@ After root `proactive_todo_write` (`merge=false`), the plugin binds a standing g
 2. Root plan: 3–7 items; expand with `merge=true` when needed.
 3. `proactive_todo_read` before each next step and after context compression.
 4. One root item `in_progress` at a time unless parallel-ready siblings.
-5. After each item's work: `proactive_todo_verify(scope=item, ...)` in the same turn when possible.
+5. After each item's work: `proactive_todo_verify(scope=item, ...)` in the same turn when possible. **Never** set `status: completed` in `proactive_todo_write` — write rejects it; use `in_progress` while working.
 6. `scope=item` verify returns compact `progress` only; full PLAN_PROGRESS is in the standing goal for the judge.
 
 ## Default workflow (lead)

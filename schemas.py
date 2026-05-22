@@ -34,6 +34,8 @@ PROACTIVE_TODO_WRITE = {
         "or terminal. Root plan: omit parent_item_id, merge=false, provide goal + items. "
         "Sub-plan (subagent): set plan_session_id + parent_item_id, merge=false to "
         "replace subitems under that parent. merge=true patches by global item id. "
+        "Do not set status=completed in write — only proactive_todo_verify marks items "
+        "completed and passed. Use in_progress while working. "
         "Never use the built-in todo tool when this plugin is active."
     ),
     "parameters": {
@@ -80,10 +82,13 @@ PROACTIVE_TODO_WRITE = {
                             "enum": [
                                 "pending",
                                 "in_progress",
-                                "completed",
                                 "cancelled",
                                 "blocked",
                             ],
+                            "description": (
+                                "Workflow status only. completed is set by "
+                                "proactive_todo_verify(scope=item), not write."
+                            ),
                         },
                         "items": {
                             "type": "array",

@@ -38,7 +38,7 @@ On successful **plan** verify, the plugin syncs a final digest into the goal and
 
 | Channel | Content |
 |---------|---------|
-| Standing goal (judge) | Full `PLAN_PROGRESS` via `sync_goal_progress` on every verify |
+| Standing goal (judge) | Full `PLAN_PROGRESS` via `sync_goal_progress` on every write and verify |
 | Tool JSON to the model | `scope=item`: compact `progress` only; `scope=plan`: `plan_summary` for the final user-facing reply |
 
 Append `plan_summary` to the **final user-facing reply** once after `scope=plan` succeeds — not after each item verify.

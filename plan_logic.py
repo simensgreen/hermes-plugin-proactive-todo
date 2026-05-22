@@ -28,6 +28,22 @@ def default_verification() -> dict[str, Any]:
     }
 
 
+def collect_disallowed_write_statuses(items: list[Any]) -> list[str]:
+    """Item ids that set status=completed via write (must use proactive_todo_verify)."""
+    bad: list[str] = []
+    for raw in items:
+        if not isinstance(raw, dict):
+            continue
+        iid = str(raw.get("id", "")).strip() or "<no-id>"
+        status = str(raw.get("status", "")).strip().lower()
+        if status == "completed":
+            bad.append(iid)
+        for sub in raw.get("items") or []:
+            if isinstance(sub, dict):
+                bad.extend(collect_disallowed_write_statuses([sub]))
+    return bad
+
+
 def normalize_item(raw: dict[str, Any]) -> dict[str, Any]:
     item_id = str(raw.get("id", "")).strip()
     if not item_id:
@@ -36,6 +52,11 @@ def normalize_item(raw: dict[str, Any]) -> dict[str, Any]:
     status = str(raw.get("status", "pending")).strip().lower()
     if status not in VALID_STATUSES:
         status = "pending"
+    if status == "completed":
+        raise ValueError(
+            "status completed is only allowed via proactive_todo_verify; "
+            "use in_progress while working"
+        )
 
     verification = raw.get("verification")
     if not isinstance(verification, dict):

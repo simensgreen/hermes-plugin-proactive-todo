@@ -119,6 +119,18 @@ def proactive_todo_write(args: dict[str, Any], **kwargs: Any) -> str:
 
         plan = _load_or_empty(session_id)
 
+        if incoming is not None and isinstance(incoming, list):
+            disallowed = pl.collect_disallowed_write_statuses(incoming)
+            if disallowed:
+                return _json({
+                    "ok": False,
+                    "error": (
+                        "status completed is only allowed via proactive_todo_verify; "
+                        "call proactive_todo_verify(scope=item) after each item's work"
+                    ),
+                    "disallowed_item_ids": disallowed,
+                })
+
         if parent_item_id:
             idx = pl.index_by_id(plan)
             if parent_item_id not in idx:
@@ -182,17 +194,18 @@ def proactive_todo_write(args: dict[str, Any], **kwargs: Any) -> str:
 
         save_plan(session_id, plan)
 
-        extra: dict[str, Any] | None = None
+        extra: dict[str, Any] = {}
         if not parent_item_id and not merge:
             if goals_bind.bind_goal_on_plan_start(session_id, plan):
-                extra = {"goal_bound": True}
+                extra["goal_bound"] = True
+        extra.update(_sync_goal_only(session_id, plan))
 
         return _json(_response(
             plan,
             session_id,
             include_full_plan=include_full,
             focus_item_id=parent_item_id if parent_item_id and not include_full else None,
-            extra=extra,
+            extra=extra or None,
         ))
     except ValueError as exc:
         return _json({"ok": False, "error": str(exc)})

@@ -131,6 +131,23 @@ def main() -> None:
     assert "PLAN_PROGRESS" in bound_goal
     assert "Ship feature" in bound_goal
 
+    bad = json.loads(tools.proactive_todo_write({
+        "merge": True,
+        "items": [{"id": "a", "status": "completed"}],
+    }, session_id=sid))
+    assert not bad["ok"], bad
+    assert "completed" in bad["error"]
+    assert bad.get("disallowed_item_ids") == ["a"]
+
+    wr = json.loads(tools.proactive_todo_write({
+        "merge": True,
+        "items": [{"id": "a", "status": "in_progress"}],
+    }, session_id=sid))
+    assert wr["ok"], wr
+    assert wr.get("goal_synced") is True
+    synced_goal = _FakeGoalManager.instances[sid]._goal or ""
+    assert "in_progress" in synced_goal or "🔄" in synced_goal
+
     for item_id, crit in [("a", ["A done"]), ("b", ["B done"])]:
         vr = json.loads(tools.proactive_todo_verify({
             "scope": "item",
